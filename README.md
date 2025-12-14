@@ -1,105 +1,67 @@
+# Terraform-Based AWS ALB with EC2
 
+## Project Overview
+This project demonstrates provisioning a scalable AWS web infrastructure using **Terraform**. An **Application Load Balancer (ALB)** distributes HTTP traffic across multiple **EC2 instances** running Nginx, ensuring high availability and fault tolerance.
 
-# 🌍 AWS Load Balancer Architecture – *shlo111 Project*
-
-This README describes the AWS infrastructure setup for the `shlo111` web application, featuring an **Application Load Balancer (ALB)** distributing traffic to **EC2 instances** running **Nginx**.
-
----
-
-## 🧭 Overview
-
-The architecture enables high availability and scalability through an **Application Load Balancer (ALB)** placed in front of EC2 instances inside a **VPC** with a **Public Subnet** and **Internet Gateway**.
+The entire infrastructure is managed as code, following Infrastructure as Code (IaC) principles.
 
 ---
 
-## 🏗️ Architecture Diagram
+## Architecture Overview
 
-```
-🌍 INTERNET
-        │
-        ▼
-┌───────────────────────────────────────────────┐
-│     Application Load Balancer (ALB)           │
-│     Name: shlo111-loadbalancer                │
-│     DNS: shlo111-loadbalancer-xxxx.elb.amazonaws.com │
-└──────────────────┬────────────────────────────┘
-                   │
-         forwards HTTP (port 80)
-                   │
-         via Listener + Target Group
-                   │
-    ┌──────────────┴──────────────────────────┐
-    │                                         │
-    ▼                                         ▼
-┌────────────────┐                  ┌────────────────┐
-│ Target Group   │                  │ Health Check   │
-│ Name: shlo111-tg│                 │ Path: "/"      │
-│ Protocol: HTTP  │                 │ Interval: 30s  │
-└────────────────┘                  └────────────────┘
-        │
-        ▼
-┌────────────────────────────────────────────────────┐
-│               EC2 Instance (Nginx)                 │
-│ Name: shlo111-web-server                           │
-│ AMI: Amazon Linux / Ubuntu                         │
-│ User Data: install_nginx.sh (auto-installs NGINX)  │
-│ Security Group: shlo111-web-sg                     │
-│ Inbound: Ports 22 (SSH), 80 (HTTP)                 │
-│ Public IP: 3.110.145.114                           │
-└────────────────────────────────────────────────────┘
-        │
-        ▼
-┌──────────────────────────┐
-│      Public Subnet 1     │
-│  CIDR: 10.0.1.0/24       │
-│  AZ: ap-south-1a         │
-└──────────────────────────┘
-        │
-        ▼
-┌──────────────────────────┐
-│     Internet Gateway     │
-│     Name: shlo111-igw    │
-└──────────────────────────┘
-        │
-        ▼
-┌──────────────────────────┐
-│           VPC            │
-│     Name: shlo111-vpc    │
-│     CIDR: 10.0.0.0/16    │
-└──────────────────────────┘
-```
+### Components
+- **VPC**: Isolated networking environment for all resources
+- **Public Subnet**: Hosts the Application Load Balancer and EC2 instances
+- **Internet Gateway**: Enables inbound and outbound internet connectivity
+- **Application Load Balancer**: Distributes HTTP traffic across EC2 instances
+- **Target Group**: Registers EC2 instances for load balancing
+- **EC2 Instances**: Run Nginx web server configured using user data
+- **Security Groups**:
+  - Allow HTTP (80) access via ALB
+  - Allow SSH (22) for administrative access
+
+### Architecture Diagram
+![Terraform ALB Architecture](terraform-alb-ec2-architecture.png)
 
 ---
 
-## ⚙️ Key Components
-
-| Component                           | Description                                                  |
-| ----------------------------------- | ------------------------------------------------------------ |
-| **VPC**                             | Virtual Private Cloud that contains all resources.           |
-| **Subnet**                          | Public Subnet for EC2 instances accessible via the internet. |
-| **Internet Gateway**                | Enables external internet access.                            |
-| **Application Load Balancer (ALB)** | Distributes incoming traffic across EC2 instances.           |
-| **Target Group**                    | Contains EC2 instances for load balancing.                   |
-| **Health Check**                    | Periodically checks the EC2 instance health via path `/`.    |
-| **EC2 Instance**                    | Runs NGINX web server installed via `User Data` script.      |
-| **Security Group**                  | Allows inbound SSH (22) and HTTP (80) traffic.               |
+## Traffic Flow
+1. Client sends an HTTP request.
+2. Application Load Balancer receives traffic on port 80.
+3. ALB forwards requests to the target group.
+4. Target group distributes requests across healthy EC2 instances.
+5. Nginx responds with web content.
 
 ---
 
-## 🚀 Workflow Summary
-
-1. **User Request** → Sent from browser via Internet.
-2. **Load Balancer (ALB)** → Receives HTTP traffic on port 80.
-3. **Listener & Target Group** → Forwards request to registered EC2 targets.
-4. **EC2 Instance (Nginx)** → Serves the web content.
-5. **Response** → Sent back to the user through the same route.
+## Terraform Highlights
+- Modular resource definition
+- Declarative infrastructure provisioning
+- Idempotent deployments
+- Easy scalability by adjusting instance count
+- Clear separation of networking and compute resources
 
 ---
 
-## 📦 Notes
+## Health Checks and Availability
+- ALB performs periodic health checks on EC2 instances.
+- Traffic is routed only to healthy targets.
+- Ensures uninterrupted service during instance failure.
 
-* Nginx auto-installs via `install_nginx.sh` in EC2 user data.
-* Health checks ensure traffic only routes to healthy instances.
-* Public subnet + Internet Gateway allows direct access via ALB DNS.
+---
 
+## What This Project Demonstrates
+- Infrastructure as Code using Terraform
+- AWS load balancing concepts
+- High availability web architecture
+- Practical EC2 and ALB integration
+- Real-world deployment patterns
+
+---
+
+## Future Enhancements
+- Add Auto Scaling Group
+- Introduce private subnets with NAT Gateway
+- Enable HTTPS using ACM
+- Terraform state management with remote backend
 
