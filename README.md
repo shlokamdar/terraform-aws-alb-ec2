@@ -21,7 +21,7 @@ The entire infrastructure is managed as code, following Infrastructure as Code (
   - Allow SSH (22) for administrative access
 
 ### Architecture Diagram
-![Terraform ALB Architecture](terraform-alb-ec2-architecture.png)
+![Terraform ALB Architecture](terraform-alb-ec2-architecture.png.png)
 
 ---
 
