@@ -1,11 +1,22 @@
-
 #!/bin/bash
-dnf update -y
-dnf install -y nginx
-systemctl enable nginx
+set -xe
+
+# Send all output to logs for debugging
+exec > /var/log/user-data.log 2>&1
+
+echo "===== User data started at $(date) ====="
+
+# Update system
+yum update -y
+
+# Install nginx
+yum install -y nginx
+
+# Start and enable nginx
 systemctl start nginx
-sleep 5
-cat <<HTML > /usr/share/nginx/html/index.html
-<h1>Hello from NGINX on Amazon Linux 2023!</h1>
-HTML
-EOF
+systemctl enable nginx
+
+# Simple test page
+echo "<h1>Nginx installed via EC2 User Data </h1>" > /usr/share/nginx/html/index.html
+
+echo "===== User data completed at $(date) ====="
