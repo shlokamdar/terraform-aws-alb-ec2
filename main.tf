@@ -1,105 +1,131 @@
+
 # ---------------------------------------------
 # VPC
 # ---------------------------------------------
-resource "aws_vpc" "shlo111_vpc" {
-  cidr_block       = var.cidr_block
-  instance_tenancy = "default"
+resource "aws_vpc" "main_vpc" {
+  cidr_block           = "10.0.0.0/16"
+  enable_dns_support   = true
+  enable_dns_hostnames = true
 
   tags = {
-    Name = "shlo111-vpc"
-  }
-}
-
-# ---------------------------------------------
-# Public Subnet
-# ---------------------------------------------
-resource "aws_subnet" "shlo111_public_subnet" {
-  vpc_id     = aws_vpc.shlo111_vpc.id
-  cidr_block = var.public_subnet_cidr
-
-  tags = {
-    Name = "shlo111-public-subnet"
-  }
-}
-
-# ---------------------------------------------
-# Private Subnet
-# ---------------------------------------------
-resource "aws_subnet" "shlo111_private_subnet" {
-  vpc_id     = aws_vpc.shlo111_vpc.id
-  cidr_block = var.private_subnet_cidr
-
-  tags = {
-    Name = "shlo111-private-subnet"
+    Name = "demo-main-vpc"
   }
 }
 
 # ---------------------------------------------
 # Internet Gateway
 # ---------------------------------------------
-resource "aws_internet_gateway" "shlo111_igw" {
-  vpc_id = aws_vpc.shlo111_vpc.id
+resource "aws_internet_gateway" "igw" {
+  vpc_id = aws_vpc.main_vpc.id
 
   tags = {
-    Name = "shlo111-igw"
+    Name = "demo-igw"
   }
 }
 
 # ---------------------------------------------
-# Route Table for Public Subnet
+# Public Subnets (Multi-AZ)
 # ---------------------------------------------
-resource "aws_route_table" "shlo111_public_rt" {
-  vpc_id = aws_vpc.shlo111_vpc.id
+resource "aws_subnet" "public_subnet_az1" {
+  vpc_id                  = aws_vpc.main_vpc.id
+  cidr_block              = "10.0.1.0/24"
+  availability_zone       = "ap-south-1a"
+  map_public_ip_on_launch = true
+
+  tags = {
+    Name = "demo-public-subnet-ap-south-1a"
+  }
+}
+
+resource "aws_subnet" "public_subnet_az2" {
+  vpc_id                  = aws_vpc.main_vpc.id
+  cidr_block              = "10.0.2.0/24"
+  availability_zone       = "ap-south-1b"
+  map_public_ip_on_launch = true
+
+  tags = {
+    Name = "demo-public-subnet-ap-south-1b"
+  }
+}
+
+# ---------------------------------------------
+# Route Table for Public Subnets
+# ---------------------------------------------
+resource "aws_route_table" "public_rt" {
+  vpc_id = aws_vpc.main_vpc.id
 
   route {
     cidr_block = "0.0.0.0/0"
-    gateway_id = aws_internet_gateway.shlo111_igw.id
+    gateway_id = aws_internet_gateway.igw.id
   }
 
   tags = {
-    Name = "shlo111-public-rt"
+    Name = "demo-public-rt"
   }
 }
 
 # ---------------------------------------------
-# Associate Public Subnet with Route Table
+# Route Table Associations
 # ---------------------------------------------
-resource "aws_route_table_association" "shlo111_public_assoc" {
-  subnet_id      = aws_subnet.shlo111_public_subnet.id
-  route_table_id = aws_route_table.shlo111_public_rt.id
+resource "aws_route_table_association" "public_rt_assoc_az1" {
+  subnet_id      = aws_subnet.public_subnet_az1.id
+  route_table_id = aws_route_table.public_rt.id
+}
+
+resource "aws_route_table_association" "public_rt_assoc_az2" {
+  subnet_id      = aws_subnet.public_subnet_az2.id
+  route_table_id = aws_route_table.public_rt.id
 }
 
 # ---------------------------------------------
-# User Data for Nginx
+# Security Group - ALB
 # ---------------------------------------------
-data "template_file" "shlo111_user_data" {
-  template = file("install_nginx.sh")
-}
-
-# ---------------------------------------------
-# Security Group for EC2
-# ---------------------------------------------
-resource "aws_security_group" "shlo111_web_sg" {
-  name        = "shlo111-web-sg"
-  description = "Allow SSH and HTTP traffic"
-  vpc_id      = aws_vpc.shlo111_vpc.id
+resource "aws_security_group" "alb_sg" {
+  name        = "demo-alb-sg"
+  description = "Allow HTTP traffic from internet"
+  vpc_id      = aws_vpc.main_vpc.id
 
   ingress {
-    description = "Allow SSH"
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Name = "demo-alb-sg"
+  }
+}
+
+# ---------------------------------------------
+# Security Group - EC2
+# ---------------------------------------------
+resource "aws_security_group" "web_sg" {
+  name        = "demo-web-sg"
+  description = "Allow HTTP from ALB and SSH access"
+  vpc_id      = aws_vpc.main_vpc.id
+
+  ingress {
+    from_port       = 80
+    to_port         = 80
+    protocol        = "tcp"
+    security_groups = [aws_security_group.alb_sg.id]
+  }
+
+  ingress {
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-  ingress {
-    description = "Allow HTTP"
-    from_port   = 80
-    to_port     = 80
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
   egress {
     from_port   = 0
     to_port     = 0
@@ -108,80 +134,53 @@ resource "aws_security_group" "shlo111_web_sg" {
   }
 
   tags = {
-    Name = "shlo111-web-sg"
+    Name = "demo-web-sg"
   }
 }
 
 # ---------------------------------------------
-# EC2 Instance
+# EC2 Instance (Web Server)
 # ---------------------------------------------
-resource "aws_instance" "shlo111_ec2" {
-  ami                        = "ami-01760eea5c574eb86"
-  instance_type              = "t3.micro"
-  subnet_id                  = aws_subnet.shlo111_public_subnet.id
+resource "aws_instance" "web_server" {
+  ami                         = "ami-01760eea5c574eb86"
+  instance_type               = "t3.micro"
+  subnet_id                   = aws_subnet.public_subnet_az1.id
   associate_public_ip_address = true
-  user_data                  = data.template_file.shlo111_user_data.rendered
-  vpc_security_group_ids     = [aws_security_group.shlo111_web_sg.id]
+  vpc_security_group_ids      = [aws_security_group.web_sg.id]
+  user_data                   = file("install_nginx.sh")
 
   tags = {
-    Name = "shlo111-web-server"
-  }
-}
-
-# ---------------------------------------------
-# Security Group for Load Balancer
-# ---------------------------------------------
-resource "aws_security_group" "shlo111_alb_sg" {
-  name        = "shlo111-alb-sg"
-  description = "Allow HTTP access to the Load Balancer"
-  vpc_id      = aws_vpc.shlo111_vpc.id
-
-  ingress {
-    description = "Allow HTTP"
-    from_port   = 80
-    to_port     = 80
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  tags = {
-    Name = "shlo111-alb-sg"
+    Name = "demo-nginx-web-server"
   }
 }
 
 # ---------------------------------------------
 # Application Load Balancer
 # ---------------------------------------------
-resource "aws_lb" "shlo111_alb" {
-  name               = "shlo111-loadbalancer"
+resource "aws_lb" "app_alb" {
+  name               = "demo-app-alb"
   internal           = false
   load_balancer_type = "application"
-  security_groups    = [aws_security_group.shlo111_alb_sg.id]
-  subnets            = [
-    aws_subnet.shlo111_public_subnet.id,
-    aws_subnet.shlo111_private_subnet.id
+  security_groups    = [aws_security_group.alb_sg.id]
+
+  subnets = [
+    aws_subnet.public_subnet_az1.id,
+    aws_subnet.public_subnet_az2.id
   ]
 
   tags = {
-    Name = "shlo111-alb"
+    Name = "demo-app-alb"
   }
 }
 
 # ---------------------------------------------
 # Target Group
 # ---------------------------------------------
-resource "aws_lb_target_group" "shlo111_tg" {
-  name     = "shlo111-tg"
+resource "aws_lb_target_group" "web_tg" {
+  name     = "demo-web-tg"
   port     = 80
   protocol = "HTTP"
-  vpc_id   = aws_vpc.shlo111_vpc.id
+  vpc_id   = aws_vpc.main_vpc.id
 
   health_check {
     path                = "/"
@@ -193,29 +192,29 @@ resource "aws_lb_target_group" "shlo111_tg" {
   }
 
   tags = {
-    Name = "shlo111-target-group"
+    Name = "demo-web-target-group"
   }
 }
 
 # ---------------------------------------------
 # Target Group Attachment
 # ---------------------------------------------
-resource "aws_lb_target_group_attachment" "shlo111_tg_attach" {
-  target_group_arn = aws_lb_target_group.shlo111_tg.arn
-  target_id        = aws_instance.shlo111_ec2.id
+resource "aws_lb_target_group_attachment" "web_tg_attach" {
+  target_group_arn = aws_lb_target_group.web_tg.arn
+  target_id        = aws_instance.web_server.id
   port             = 80
 }
 
 # ---------------------------------------------
-# Load Balancer Listener
+# Listener
 # ---------------------------------------------
-resource "aws_lb_listener" "shlo111_listener" {
-  load_balancer_arn = aws_lb.shlo111_alb.arn
+resource "aws_lb_listener" "http_listener" {
+  load_balancer_arn = aws_lb.app_alb.arn
   port              = 80
   protocol          = "HTTP"
 
   default_action {
     type             = "forward"
-    target_group_arn = aws_lb_target_group.shlo111_tg.arn
+    target_group_arn = aws_lb_target_group.web_tg.arn
   }
 }
