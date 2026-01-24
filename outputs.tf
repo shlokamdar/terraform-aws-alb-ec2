@@ -1,63 +1,41 @@
 # ---------------------------------------------
-# EC2 Outputs
+# Outputs
 # ---------------------------------------------
-output "shlo111_ec2_public_ip" {
-  description = "Public IP of the EC2 instance"
-  value       = aws_instance.shlo111_ec2.public_ip
-}
 
-output "shlo111_ec2_public_dns" {
-  description = "Public DNS of the EC2 instance"
-  value       = aws_instance.shlo111_ec2.public_dns
-}
-
-output "shlo111_ec2_id" {
-  description = "Instance ID of the EC2 instance"
-  value       = aws_instance.shlo111_ec2.id
-}
-
-# ---------------------------------------------
-# Load Balancer Outputs
-# ---------------------------------------------
-output "shlo111_alb_dns_name" {
-  description = "DNS name of the Application Load Balancer"
-  value       = aws_lb.shlo111_alb.dns_name
-}
-
-output "shlo111_alb_arn" {
-  description = "ARN of the Application Load Balancer"
-  value       = aws_lb.shlo111_alb.arn
-}
-
-output "shlo111_target_group_arn" {
-  description = "ARN of the Target Group"
-  value       = aws_lb_target_group.shlo111_tg.arn
-}
-
-# ---------------------------------------------
-# Network Outputs
-# ---------------------------------------------
-output "shlo111_vpc_id" {
+output "vpc_id" {
   description = "VPC ID"
-  value       = aws_vpc.shlo111_vpc.id
+  value       = aws_vpc.main_vpc.id
 }
 
-output "shlo111_public_subnet_id" {
-  description = "Public Subnet ID"
-  value       = aws_subnet.shlo111_public_subnet.id
+output "public_subnet_ids" {
+  description = "Public subnet IDs across AZs"
+  value = [
+    aws_subnet.public_subnet_az1.id,
+    aws_subnet.public_subnet_az2.id
+  ]
 }
 
-output "shlo111_private_subnet_id" {
-  description = "Private Subnet ID"
-  value       = aws_subnet.shlo111_private_subnet.id
+output "alb_dns_name" {
+  description = "Application Load Balancer DNS name"
+  value       = aws_lb.app_alb.dns_name
 }
 
-output "shlo111_security_group_id" {
-  description = "Security Group ID for the Web Server"
-  value       = aws_security_group.shlo111_web_sg.id
+output "alb_arn" {
+  description = "Application Load Balancer ARN"
+  value       = aws_lb.app_alb.arn
 }
 
-output "shlo111_alb_security_group_id" {
-  description = "Security Group ID for the ALB"
-  value       = aws_security_group.shlo111_alb_sg.id
+output "target_group_arn" {
+  description = "Target Group ARN"
+  value       = aws_lb_target_group.web_tg.arn
+}
+
+output "ec2_instance_id" {
+  description = "Web server EC2 instance ID"
+  value       = aws_instance.web_server.id
+}
+
+output "ec2_public_ip" {
+  description = "Public IP of EC2 instance (for SSH/testing)"
+  value       = aws_instance.web_server.public_ip
 }
